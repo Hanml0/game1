@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>情侣转盘大冒险</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC";
+    background: linear-gradient(135deg, #fce4ec, #f8bbd0);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+.container {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 10px 30px rgba(233, 30, 99, 0.15);
+    text-align: center;
+}
+h1 { color: #e91e63; font-size: 24px; margin-bottom: 8px; }
+.subtitle { color: #888; font-size: 14px; margin-bottom: 20px; }
+
+.wheel-wrapper {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    margin: 0 auto 25px;
+}
+.pointer {
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 20px solid #e91e63;
+    z-index: 10;
+}
+.wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 6px solid #f48fb1;
+    overflow: hidden;
+}
+.slice {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    left: 50%;
+    top: 0;
+    transform-origin: 0% 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+}
+
+.btn-group { display: flex; gap: 10px; }
+.btn {
+    flex: 1;
+    padding: 14px;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    cursor: pointer;
+}
+.btn-start { background: #e91e63; color: #fff; }
+.btn-stop { background: #fff; color: #e91e63; border: 1px solid #f48fb1; }
+
+.result-card {
+    background: #fdf2f7;
+    border-radius: 12px;
+    padding: 15px;
+    margin-bottom: 15px;
+    text-align: left;
+}
+.result-step { font-weight: bold; color: #e91e63; margin-bottom: 5px; }
+.result-content { font-size: 14px; color: #555; line-height: 1.6; }
+.hidden { display: none; }
+</style>
+</head>
+
+<body>
+
+<div class="container" id="gameScreen">
+    <h1 id="roundTitle">🎡 第 1 轮</h1>
+    <p class="subtitle" id="roundDesc">抽取：谁来接受挑战？</p>
+    
+    <div class="wheel-wrapper">
+        <div class="pointer"></div>
+        <div class="wheel" id="wheel"></div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-start" onclick="startSpin()">开始旋转</button>
+        <button class="btn btn-stop" onclick="stopSpin()">停止</button>
+    </div>
+</div>
+
+<div class="container hidden" id="resultScreen">
+    <h1>🏆 挑战结果</h1>
+    <div id="finalResult"></div>
+    <button class="btn btn-start" style="margin-top:15px;" onclick="restart()">🔄 再来一次</button>
+</div>
+
+<script>
+/* =========================================================
+   题库（100% 实题，无占位符）
+   ========================================================= */
+
+const truthQuestions = [
+    "你第一次对我心动是因为哪一刻？",
+    "说出三个我最让你心动的小细节。",
+    "你最欣赏我身上的哪种品质？",
+    "你做过最浪漫的事是什么？",
+    "你有没有偷偷想过我们的未来？",
+    "你手机里我的备注是什么？为什么这么改？",
+    "你最害怕失去我什么？",
+    "你理想中的约会是什么样的？",
+    "你最想和我一起去旅行的三个地方是哪里？",
+    "你觉得我们现在的关系中，最需要改进的一点是什么？",
+    "你第一次产生想和对方结婚的念头是在什么时候？",
+    "你有没有什么事情一直瞒着我？",
+    "你最想收到什么样的礼物？",
+    "如果我们可以互换身份一天，你最想体验什么？",
+    "你最想听我对你说的一句话是什么？",
+    "你觉得我们俩谁更爱吃醋？",
+    "你记忆中最深刻的一次吵架是因为什么？",
+    "你最想和我一起养的宠物是什么？",
+    "你第一次牵我手的时候在想什么？",
+    "你觉得我穿什么颜色的衣服最好看？",
+    "你最喜欢我的哪个表情？",
+    "你有没有觉得我有时候很烦？",
+    "你最想和我一起做的一件疯狂的事是什么？",
+    "你觉得我们的爱情保鲜秘诀是什么？",
+    "你最不能容忍的伴侣缺点是什么？",
+    "你第一次见我家长时紧张吗？",
+    "你希望我们的家是什么样子的？",
+    "你最想和我一起看的电影是哪部？",
+    "你最近一次因为我哭/笑是因为什么？",
+    "你觉得我在朋友面前是怎样的人？",
+    "你最近有没有什么心事没告诉我？",
+    "你觉得我最近压力大吗？",
+    "你最想带我去见谁？",
+    "你觉得我像哪种小动物？",
+    "你最想和我一起过的节日是哪个？",
+    "你第一次为我做饭是什么时候？",
+    "你觉得我身上有什么味道？",
+    "你最想和我一起拍的一组照片主题是什么？",
+    "你最近一次心动是因为看到了什么？",
+    "你觉得我睡觉的样子可爱吗？",
+    "你最想和我一起尝试的美食是什么？",
+    "你有没有想过如果我们异地恋怎么办？",
+    "你最想和我一起参加的活动是什么？",
+    "你觉得我最大的魅力是什么？",
+    "你第一次给我买礼物是什么？",
+    "你最想和我一起做的家务是什么？",
+    "你觉得我生气时最可怕的是什么？",
+    "你最想和我一起看的风景在哪里？",
+    "你最近一次感到幸福是因为什么？",
+    "你最想和我一起唱的歌是哪首？",
+    "你觉得我最近有什么变化？",
+    "你最想和我一起写的书是什么题材？",
+    "你第一次觉得离不开我是在什么时候？",
+    "你最想和我一起玩的游戏是什么？",
+    "你觉得我打呼噜吗？",
+    "你最想和我一起看的星星在哪里？",
+    "你最近一次想我是因为什么？",
+    "你最想和我一起设计的纹身是什么？",
+    "你觉得我最近胖了吗？",
+    "你最想和我一起去的游乐园项目是什么？",
+    "你第一次为我流泪是因为什么？",
+    "你最想和我一起做的公益活动是什么？",
+    "你觉得我最近有什么坏习惯？",
+    "你最想和我一起听的播客是什么？",
+    "你第一次觉得我像家一样温暖是在什么时候？",
+    "你最想和我一起种的植物是什么？",
+    "你觉得我最近对你最好的一件事是什么？",
+    "你最想和我一起学的技能是什么？",
+    "你第一次觉得我是真爱是在什么时候？",
+    "你最想和我一起看的演唱会是谁的？",
+    "你觉得我最近有什么进步？",
+    "你最想和我一起拼的乐高是什么？",
+    "你最近一次觉得我笨拙是因为什么？",
+    "你最想和我一起做的手工是什么？",
+    "你觉得我最近最辛苦的一件事是什么？",
+    "你最想和我一起去的博物馆是哪个？",
+    "你第一次觉得我是灵魂伴侣是在什么时候？",
+    "你最想和我一起写的信是写给谁的？",
+    "你觉得我最近最让你心疼的一件事是什么？",
+    "你最想和我一起看的日落在哪里？",
+    "你最近一次觉得我成熟了是因为什么？",
+    "你最想和我一起做的甜点是什么？",
+    "你第一次觉得我幼稚是在什么时候？"
+];
+
+const dareTasks = [
+    "给对方一个长达10秒的深情对视。",
+    "用撒娇的语气说三句‘我好喜欢你’。",
+    "模仿对方平时最爱做的一个动作，并保持10秒。",
+    "给对方一个额头吻，持续3分钟。",
+    "闭上眼睛，让对方喂你吃一口食物（对方指定）。",
+    "把手机壁纸换成对方的丑照，保持1小时。",
+    "接下来的10分钟，只能用叠词交流（如吃饭饭）。",
+    "给对方一个大大的拥抱，并说‘没有你我怎么活’。",
+    "学一种小动物叫，直到对方笑场。",
+    "用手机备忘录画一幅对方的肖像画。",
+    "给对方唱一首情歌，跑调也没关系。",
+    "让对方在你脸上画一个小胡子。",
+    "接下来的5分钟，要把对方当成国王/女王侍奉。",
+    "发一条朋友圈夸赞对方，并配一张对方的丑照。",
+    "用你的额头撞一下对方的额头，并说‘波波’。",
+    "让对方在你手背上画一个爱心。",
+    "接下来的3句话必须使用播音腔。",
+    "原地转10圈，然后去亲对方一下。",
+    "让对方给你起一个奇怪的昵称，并叫对方一声。",
+    "做一个鬼脸，让对方拍照留念。",
+    "用脚夹住一支笔，并尝试写字。",
+    "让对方给你编一个花环戴在头上。",
+    "接下来的5分钟，走路必须同手同脚。",
+    "用屁股扭出一个爱心形状。",
+    "让对方在你手臂上画一只小猫。",
+    "模仿一个你讨厌的明星。",
+    "给对方按摩肩膀3分钟。",
+    "用三种不同的方言说‘我爱你’。",
+    "让对方捏你的脸，直到你喊停。",
+    "做一个高难度的瑜伽动作（量力而行）。",
+    "让对方给你讲一个冷笑话，你不能笑。",
+    "用嘴叼着纸巾，递给对方。",
+    "接下来的10分钟，不能说谎。",
+    "让对方给你涂口红（或润唇膏）。",
+    "原地蛙跳5下。",
+    "用鼻子嗅对方的手腕，并说出闻到的味道。",
+    "让对方在你背上画一幅画，猜猜是什么。",
+    "接下来的5分钟，只能点头或摇头回答问题。",
+    "用肚子顶着一个气球，走到房间的另一端。",
+    "让对方给你系鞋带。",
+    "做一个俯卧撑（或平板支撑10秒）。",
+    "用舌头抵住上颚，说一句绕口令。",
+    "让对方给你剥一个水果吃。",
+    "接下来的3分钟，不能眨眼。",
+    "用脚趾夹住遥控器换台。",
+    "让对方给你画一个络腮胡。",
+    "学大猩猩捶胸顿足5次。",
+    "用最严肃的表情说一句最肉麻的话。",
+    "让对方给你吹头发。",
+    "原地金鸡独立30秒。",
+    "用脸颊夹住一张纸，坚持1分钟。",
+    "让对方给你戴上一个奇怪的发饰。",
+    "学猫叫叫醒对方（如果是早上）。",
+    "用嘴叼着一朵花，送给对方。",
+    "让对方给你挠痒痒，直到你说停。",
+    "做一个托马斯全旋（做不到就转圈）。",
+    "用脸颊顶住一个乒乓球，走到终点。",
+    "让对方给你系围巾。",
+    "接下来的5分钟，必须像服务员一样对待对方。",
+    "用脚后跟走路10步。",
+    "让对方给你涂指甲油。",
+    "接下来的5分钟，说话必须押韵。",
+    "做一个后空翻（做不到就做一个侧手翻）。",
+    "用眉毛夹住一根牙签。",
+    "让对方给你编一个麻花辫。",
+    "接下来的3句话必须倒着说。",
+    "用膝盖走路10步。",
+    "让对方给你涂防晒霜。",
+    "学蜡笔小新说话。",
+    "用嘴叼着一支笔，签下自己的名字。",
+    "让对方给你戴上耳机，听一首歌。",
+    "做一个高抬腿动作10次。",
+    "用舌头舔一下自己的手肘（挑战极限）。"
+];
+
+/* =========================================================
+   游戏逻辑
+   ========================================================= */
+
+let currentRound = 1;
+let targetPerson = "";
+let gameMode = "";
+let rotation = 0;
+let spinSpeed = 0;
+let animationFrameId = null;
+
+const wheel = document.getElementById("wheel");
+const roundTitle = document.getElementById("roundTitle");
+const roundDesc = document.getElementById("roundDesc");
+
+// 初始化
+updateWheel(["小王同学", "小韩同学"]);
+
+function updateWheel(items) {
+    wheel.innerHTML = "";
+    const colors = ["#FF80AB", "#F06292", "#EC407A", "#E91E63", "#D81B60", "#C2185B", "#AD1457", "#880E4F"];
+    items.forEach((text, i) => {
+        const slice = document.createElement("div");
+        slice.className = "slice";
+        slice.innerText = text;
+        slice.style.background = colors[i % colors.length];
+        slice.style.transform = `rotate(${i * (360 / items.length)}deg)`;
+        wheel.appendChild(slice);
+    });
+}
+
+function startSpin() {
+    if (spinSpeed > 0) return;
+    spinSpeed = 15;
+    animate();
+}
+
+function animate() {
+    rotation += spinSpeed;
+    wheel.style.transform = `rotate(${rotation}deg)`;
+    animationFrameId = requestAnimationFrame(animate);
+}
+
+function stopSpin() {
+    if (spinSpeed === 0) return;
+    
+    cancelAnimationFrame(animationFrameId);
+    spinSpeed = 0;
+
+    let result = "";
+    if (currentRound === 1) {
+        targetPerson = Math.random() > 0.5 ? "小王同学" : "小韩同学";
+        result = targetPerson;
+        alert(`第 1 轮结果：\n${result} 接受惩罚！`);
+        
+        currentRound = 2;
+        roundTitle.innerText = "🎡 第 2 轮";
+        roundDesc.innerText = "抽取：惩罚方向（真心话 / 大冒险）";
+        updateWheel(["真心话", "大冒险"]);
+
+    } else if (currentRound === 2) {
+        gameMode = Math.random() > 0.5 ? "真心话" : "大冒险";
+        result = gameMode;
+        alert(`第 2 轮结果：\n惩罚方向 —— ${result}！`);
+        
+        currentRound = 3;
+        roundTitle.innerText = "🎡 第 3 轮";
+        roundDesc.innerText = `抽取：${gameMode} 具体内容`;
+        
+        const pool = gameMode === "真心话" ? truthQuestions : dareTasks;
+        updateWheel(pool.slice(0, 8));
+
+    } else if (currentRound === 3) {
+        const pool = gameMode === "真心话" ? truthQuestions : dareTasks;
+        const randomIndex = Math.floor(Math.random() * pool.length);
+        result = pool[randomIndex]; // ✅ 直接取真实题目
+        alert(`第 3 轮结果：\n${gameMode} 题目 —— ${result}`);
+        showFinalResult(result);
+    }
+}
+
+function showFinalResult(finalTask) {
+    document.getElementById("gameScreen").classList.add("hidden");
+    document.getElementById("resultScreen").classList.remove("hidden");
+
+    document.getElementById("finalResult").innerHTML = `
+        <div class="result-card">
+            <div class="result-step">👤 惩罚对象</div>
+            <div class="result-content">${targetPerson}</div>
+        </div>
+        <div class="result-card">
+            <div class="result-step">🎯 惩罚方向</div>
+            <div class="result-content">${gameMode}</div>
+        </div>
+        <div class="result-card">
+            <div class="result-step">📝 最终任务</div>
+            <div class="result-content">${finalTask}</div>
+        </div>
+    `;
+}
+
+function restart() {
+    location.reload();
+}
+</script>
+
+</body>
+</html>
